@@ -14,7 +14,7 @@ Route::get('/user', function (Request $request) {
 //  
    Route::post('/register', [AuthController::class, 'register']);
    Route::post('/login', [AuthController::class, 'login']);
-
+   Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -25,6 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Cart
     Route::get('/cart', [CartController::class, 'getCart']);
     Route::post('/cart/add', [CartController::class, 'add']);
+    Route::post('/cart/update', [CartController::class, 'update']);
     Route::post('/cart/remove', [CartController::class, 'remove']);
 
     // Orders

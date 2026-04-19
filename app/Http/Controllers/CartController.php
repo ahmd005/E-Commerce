@@ -5,37 +5,42 @@ namespace App\Http\Controllers;
 use App\Models\Cart;
 use App\Models\CartItem;
 use Illuminate\Http\Request;
-
+use App\Repositories\Contracts\CartRepositoryInterface;
+use App\Repositories\CartRepository;
 class CartController extends Controller
 {
-    public function getCart(Request $request) {
-        $cart = Cart::firstOrCreate(['user_id' => $request->user()->id]);
-        return $cart->load('items.product');
+
+
+    public function __construct(private CartRepositoryInterface $cartRepository)
+    {
+        
+    }
+    public function getCart() {
+        $userId = auth()->id();
+        $cart = $this->cartRepository->getUserCart($userId); 
+        return response()->json($cart,200);
+
     }
 
     public function add(Request $request) {
-        $cart = Cart::firstOrCreate(['user_id' => $request->user()->id]);
+        $userId = auth()->id();
+        $this->cartRepository->addToCart($userId, $request->product_id, $request->quantity);
 
-        $item = CartItem::where('cart_id', $cart->id)
-            ->where('product_id', $request->product_id)
-            ->first();
-
-        if ($item) {
-            $item->quantity += $request->quantity;
-            $item->save();
-        } else {
-            CartItem::create([
-                'cart_id' => $cart->id,
-                'product_id' => $request->product_id,
-                'quantity' => $request->quantity
-            ]);
-        }
-
-        return response()->json(['message' => 'Added']);
+        return response()->json(['message' => 'Added'],200);
+    }
+    public function update(Request $request) {
+        $userId = auth()->id();
+        $this->cartRepository->addToCart($userId, $request->product_id, $request->quantity);
+        return response()->json(['message' => 'Updated'],200);
     }
 
     public function remove(Request $request) {
-        CartItem::where('id', $request->item_id)->delete();
-        return response()->json(['message' => 'Removed']);
+        try{
+            $this->cartRepository->removeFromCart($request->item_id);
+            return response()->json(['message' => 'Removed'],200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 404);
+        }
+        
     }
 }

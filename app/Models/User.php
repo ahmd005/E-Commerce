@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Models;
+use App\Traits\HasRolesAndPermissions;
 use Laravel\Sanctum\HasApiTokens;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -10,8 +11,7 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
-    use HasApiTokens;
+    use HasFactory, Notifiable, HasApiTokens, HasRolesAndPermissions;
 
     /**
      * The attributes that are mass assignable.
