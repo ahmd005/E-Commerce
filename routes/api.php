@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 
+
+
+
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
@@ -35,3 +38,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 
+
+
+// الراوت الخاص بتقرير الجرد اليومي
+    // مسار توليد التقرير الضخم عبر RabbitMQ
+ //Route::get('/inventory-report', [OrderController::class, 'generateDailyReport']);
+
+  // مسار توليد التقرير الضخم عبر RabbitMQ
+Route::get('/generate-inventory-report', [OrderController::class, 'generateDailyReport']);
+
+// 1. الرابط "السيئ" (المعالجة المباشرة والخطيرة)
+Route::get('/report/sync-bad-way', [OrderController::class, 'generateReportSync']);
