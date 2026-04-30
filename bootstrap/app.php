@@ -1,5 +1,3 @@
-
-
 <?php
 
 // if (!defined('SIGINT')) define('SIGINT', 2);
@@ -18,7 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->append(App\Http\Middleware\PerformanceMonitoringMiddleware::class);
+        $middleware->append(\App\Http\Middleware\PerformanceMonitoringMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
