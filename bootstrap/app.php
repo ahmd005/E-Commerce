@@ -1,12 +1,11 @@
 <?php
 
-// if (!defined('SIGINT')) define('SIGINT', 2);
-// if (!defined('SIGTERM')) define('SIGTERM', 15);
-// if (!defined('SIGHUP')) define('SIGHUP', 1);
-
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+
+use App\Http\Middleware\PerformanceMonitoringMiddleware;
+use App\Http\Middleware\QueueRequestTrackingMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -16,7 +15,20 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->append(\App\Http\Middleware\PerformanceMonitoringMiddleware::class);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Middleware Stack
+        |--------------------------------------------------------------------------
+        */
+
+        // 1. Performance Monitoring (AOP + tracing + logging)
+        $middleware->append(PerformanceMonitoringMiddleware::class);
+
+        // 2. Queue Tracking Middleware alias (from nadim branch)
+        $middleware->alias([
+            'track.queue' => QueueRequestTrackingMiddleware::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

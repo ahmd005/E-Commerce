@@ -10,10 +10,11 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ConcurrencyCheckoutController;
+use App\Http\Controllers\Admin\ActionForAdmin;
 
 /*
 |--------------------------------------------------------------------------
-| Auth Routes
+| User Auth Route
 |--------------------------------------------------------------------------
 */
 
@@ -21,11 +22,15 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-// مهم جداً لحل مشكلة Route [login] not defined
+/*
+|--------------------------------------------------------------------------
+| Auth Routes (PUBLIC)
+|--------------------------------------------------------------------------
+*/
+
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/register', [AuthController::class, 'register'])->name('register');
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
-
 
 /*
 |--------------------------------------------------------------------------
@@ -34,11 +39,22 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanc
 */
 
 Route::get('/products', [ProductController::class, 'index']);
-
 Route::post('/test-stock', [InventoryController::class, 'testStock']);
+
 /*
 |--------------------------------------------------------------------------
-| Protected Routes
+| Admin Routes (MUST BE AUTH ONLY - separate group)
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/admin/export/queue', [ActionForAdmin::class, 'exportWithQueue']);
+    Route::post('/admin/export/sync', [ActionForAdmin::class, 'exportSync']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Protected Routes (User)
 |--------------------------------------------------------------------------
 */
 
@@ -57,31 +73,21 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/checkout', [OrderController::class, 'checkout']);
     Route::get('/orders', [OrderController::class, 'index']);
 
-    // Inventory test (بدون throttle)
-    // Route::post('/test-stock', [InventoryController::class, 'testStock'])
-    //     ->withoutMiddleware([\Illuminate\Routing\Middleware\ThrottleRequests::class]);
-
-    // ========================
-    // Benchmark (من الفرع الثاني)
-    // ========================
+    // Benchmark
     Route::post('/benchmark/checkout/before', [OrderController::class, 'before']);
     Route::post('/benchmark/checkout/compare', [OrderController::class, 'compare']);
     Route::post('/benchmark/checkout/after', [OrderController::class, 'after'])
         ->middleware('throttle:2000,10');
 
-    // (اختياري إذا بدك ترجعها)
+    // Optional concurrency
     // Route::post('/checkout/concurrency', [ConcurrencyCheckoutController::class, 'checkout']);
 });
 
-
 /*
 |--------------------------------------------------------------------------
-| Reports (RabbitMQ + Sync)
+| Reports
 |--------------------------------------------------------------------------
 */
 
-// تقرير عبر RabbitMQ
 Route::get('/generate-inventory-report', [OrderController::class, 'generateDailyReport']);
-
-// الطريقة السيئة (sync)
 Route::get('/report/sync-bad-way', [OrderController::class, 'generateReportSync']);
