@@ -2,62 +2,82 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Cart;
-use App\Models\Order;
-use App\Models\OrderItem;
 use App\Models\Product;
-use Exception;
-use Illuminate\Support\Facades\DB;
-
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+use Exception;
+use App\Jobs\ProcessOrder; 
+
 
 class OrderController extends Controller
 {
-    public function checkout(Request $request)
-    {
-        return DB::transaction(function () use ($request) {
 
-            $user = $request->user();
-            $cart = Cart::where('user_id', $user->id)->first();
+public function before(Request $request) {
+    $product = Product::find(1); 
+    $currentStock = $product->stock;
 
-            $order = Order::create([
-                'user_id' => $user->id,
-                'total_price' => 0,
-                'status' => 'pending'
-            ]);
+     usleep(500000); 
 
-            $total = 0;
+    if ($currentStock > 0) {
+        $product->stock = $currentStock - 1;
+        $product->save();
 
-            foreach ($cart->items as $item) {
+        return response()->json([
+            'status' => 'VULNERABLE_SUCCESS',
+            'stock_after' => $product->stock  
+        ]);
+    }
 
-                $product = Product::lockForUpdate()->find($item->product_id);
+    return response()->json(['status' => 'OUT_OF_STOCK'], 400);
+}
 
-                if ($product->stock < $item->quantity) {
-                    throw new Exception("Out of stock");
+
+public function after(Request $request) {
+    $productId = $request->product_id;
+
+   
+    $pool = Cache::lock('my_thread_pool', 10); 
+
+    try {
+        return $pool->block(5, function () use ($productId) {
+            
+            return DB::transaction(function () use ($productId) {
+                $product = Product::lockForUpdate()->find($productId);
+                
+                if ($product && $product->stock > 0) {
+                    $product->decrement('stock');
+                    
+                    return response()->json([
+                        'status' => 'SAFE_SUCCESS',
+                        'stock_after' => $product->stock,
+                        'info' => 'Processed via Thread Pool'
+                    ]);
                 }
-
-                $product->stock -= $item->quantity;
-                $product->save();
-
-                OrderItem::create([
-                    'order_id' => $order->id,
-                    'product_id' => $product->id,
-                    'quantity' => $item->quantity,
-                    'price' => $product->price
-                ]);
-
-                $total += $product->price * $item->quantity;
-            }
-
-            $order->update(['total_price' => $total]);
-
-            $cart->items()->delete();
-
-            return $order;
+                
+                return response()->json(['status' => 'OUT_OF_STOCK'], 400);
+            });
         });
+    } catch (Exception $e) {
+        return response()->json([
+            'status' => 'SERVER_BUSY',
+            'message' => 'Thread Pool is full, try again later'
+        ], 503);
+    }
+}
+
+
+    public function resetStock(Request $request)
+    {
+        $productId = $request->product_id ?? 1;
+        $product = Product::find($productId);
+        
+        if ($product) {
+            $product->update(['stock' => 10]);
+            return response()->json(['message' => 'Stock reset to 10 successfully']);
+        }
+        
+        return response()->json(['message' => 'Product not found'], 404);
     }
 
-    public function index(Request $request) {
-        return Order::where('user_id', $request->user()->id)->get();
-    }
 }
