@@ -51,6 +51,45 @@ return [
     */
 
     'channels' => [
+        
+   
+    
+    'monitor' => [
+        'driver' => 'daily',
+        'path' => storage_path('logs/monitor/monitor.log'),
+        'level' => env('MONITOR_LOG_LEVEL', 'info'),
+        'days' => 30,
+        'tap' => [App\Logging\CustomLogFormatter::class],
+    ],
+    
+    'critical' => [
+        'driver' => 'daily',
+        'path' => storage_path('logs/monitor/critical.log'),
+        'level' => 'critical',
+        'days' => 90,
+    ],
+
+    // قناة تتبع أخطاء الطوابير
+    'queue_errors' => [
+        'driver' => 'daily',
+        'path' => storage_path('logs/queue_errors.log'),
+        'level' => 'info',
+        'days' => 30,
+    ],
+      'queue_jobs' => [
+        'driver' => 'daily',
+        'path' => storage_path('logs/queue/queue_jobs.log'),
+        'level' => env('LOG_LEVEL', 'info'),
+        'days' => 14,
+    ],
+    
+    'exports' => [
+        'driver' => 'daily',
+        'path' => storage_path('logs/exports/exports.log'),
+        'level' => env('LOG_LEVEL', 'info'),
+        'days' => 30,
+    ],
+
 
         'stack' => [
             'driver' => 'stack',
