@@ -48,6 +48,43 @@ public function handleSingleUserExport($exportId, $adminId, $targetUserId)
 //     return $filePath;
 // }
 
+
+
+public function handleExport($exportId, $userId)
+{
+    // 1. تحديد اسم ومسار الملف
+    $fileName = 'exports/sync_export_' . $exportId . '.csv';
+    $fullPath = storage_path('app/public/' . $fileName);
+
+    // التأكد من وجود المجلد
+    if (!file_exists(storage_path('app/public/exports'))) {
+        mkdir(storage_path('app/public/exports'), 0755, true);
+    }
+
+    // 2. جلب البيانات وكتابتها في ملف CSV (أسرع من Excel في الـ Sync)
+    $users = \App\Models\User::all();
+    $file = fopen($fullPath, 'w');
+    
+    // إضافة العناوين
+    fputcsv($file, ['ID', 'Name', 'Email', 'Created At']);
+
+    foreach ($users as $user) {
+        fputcsv($file, [$user->id, $user->name, $user->email, $user->created_at]);
+    }
+    fclose($file);
+
+    // 3. تحديث حالة الجدول إلى مكتمل
+    $this->updateStatus($exportId, 'completed', $userId, $fileName, $users->count());
+
+    return $fileName;
+}
+
+
+
+
+
+
+
 public function updateStatus($exportId, $status, $userId, $filePath = null, $count = 0, $error = null)
 {
     \DB::table('exports')->updateOrInsert(
