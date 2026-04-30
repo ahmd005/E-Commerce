@@ -175,10 +175,10 @@ return [
 
         Watchers\JobWatcher::class => env('TELESCOPE_JOB_WATCHER', true),
 
-        Watchers\LogWatcher::class => [
-            'enabled' => env('TELESCOPE_LOG_WATCHER', true),
-            'level' => 'debug',
-        ],
+  Watchers\LogWatcher::class => [
+    'enabled' => env('TELESCOPE_LOG_WATCHER', true),
+    'level' => env('TELESCOPE_LOG_LEVEL', 'debug'),
+],
 
         Watchers\MailWatcher::class => env('TELESCOPE_MAIL_WATCHER', true),
 

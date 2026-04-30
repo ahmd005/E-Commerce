@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Middleware;
 
 use Closure;
@@ -8,51 +9,60 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * PerformanceMonitoringMiddleware - AOP Layer (Cross-Cutting Concerns)
- * 
- * مسؤولة عن:
- * 1. قياس أداء الطلب (duration) - Performance Monitoring
- * 2. توليد Tracing ID لتتبع الطلب - Distributed Tracing
- * 3. تسجيل معلومات الطلب والاستجابة - Logging
- * 4. معالجة الأخطاء المركزية - Centralized Error Handling
- * 
- * هذه الطبقة تفصل جميع Cross-Cutting Concerns عن Business Logic
- * لا يجب أن يعتمد Services أو Controllers على هذه المسؤوليات
- */
 class PerformanceMonitoringMiddleware
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // ============ AOP: TRACING ============
+        // ================== TRACING ==================
         $traceId = Str::uuid()->toString();
-        $request->attributes->set('request_id', $traceId);
-        $request->attributes->set('trace_id', $traceId);
 
-        // ============ AOP: PERFORMANCE MONITORING - قياس الوقت ============
+        // حفظ داخل attributes (request1-clean)
+        $request->attributes->set('trace_id', $traceId);
+        $request->attributes->set('request_id', $traceId);
+
+        // حفظ داخل headers (main)
+        $request->headers->set('X-Trace-Id', $traceId);
+
+        // ================== MODE DETECTION ==================
+        $isAfterMode = str_contains($request->path(), 'after') 
+            || $request->query('mode') === 'after';
+
+        $executionLabel = $isAfterMode 
+            ? 'AFTER (Optimized)' 
+            : 'BEFORE (Vulnerable)';
+
+        // ================== PERFORMANCE START ==================
         $startTime = hrtime(true);
         $startMemory = memory_get_usage();
 
         try {
-            // ============ BUSINESS LOGIC ============
+            // ================== BUSINESS LOGIC ==================
             $response = $next($request);
         } catch (\Throwable $exception) {
-            // ============ AOP: CENTRALIZED ERROR HANDLING ============
+
+            // ================== ERROR HANDLING (MERGED) ==================
             Log::error('aop_exception_caught', [
                 'trace_id' => $traceId,
                 'exception' => class_basename($exception),
                 'message' => $exception->getMessage(),
                 'path' => $request->path(),
                 'method' => $request->method(),
+                'mode' => $executionLabel
             ]);
+
             throw $exception;
         }
 
-        // ============ AOP: PERFORMANCE MONITORING - حساب النتائج ============
+        // ================== PERFORMANCE CALC ==================
         $duration = (hrtime(true) - $startTime) / 1_000_000;
+
+        // request1-clean (peak memory)
         $peakMemory = memory_get_peak_usage(true) / 1024 / 1024;
 
-        // ============ AOP: LOGGING - تسجيل المقاييس ============
+        // main (delta memory)
+        $memoryUsage = (memory_get_usage() - $startMemory) / 1024;
+
+        // ================== LOGGING (MERGED FULL) ==================
         Log::info('aop_request_metrics', [
             'trace_id' => $traceId,
             'method' => $request->method(),
@@ -60,24 +70,44 @@ class PerformanceMonitoringMiddleware
             'status_code' => $response->getStatusCode(),
             'duration_ms' => round($duration, 2),
             'peak_memory_mb' => round($peakMemory, 2),
+            'memory_usage_kb' => round($memoryUsage, 2),
+            'mode' => $executionLabel,
             'user_id' => $request->user()?->id ?? 'anonymous',
             'timestamp' => now()->toIso8601String(),
         ]);
 
-        // ============ AOP: INJECT METRICS INTO RESPONSE ============
+        // ================== RESPONSE ENRICHMENT ==================
         if ($response instanceof JsonResponse) {
             $payload = $response->getData(true) ?? [];
+
             if (is_array($payload)) {
+
+                // request1-clean style
                 $payload['_aop_metrics'] = [
                     'trace_id' => $traceId,
                     'duration_ms' => round($duration, 2),
-                    'memory_mb' => round($peakMemory, 2),
+                    'peak_memory_mb' => round($peakMemory, 2),
+                    'memory_usage_kb' => round($memoryUsage, 2),
                 ];
+
+                // main style
+                $payload['comparison_metrics'] = [
+                    'mode' => $executionLabel,
+                    'execution_time' => round($duration, 2) . ' ms',
+                    'memory_usage' => round($memoryUsage, 2) . ' KB',
+                    'parallel_id' => $traceId
+                ];
+
+                // efficiency report
+                $payload['efficiency_report'] = $isAfterMode
+                    ? "Resource locking and optimization active."
+                    : "Warning: Parallel race conditions may occur.";
+
                 $response->setData($payload);
             }
         }
 
-        // ============ AOP: INJECT TRACE ID INTO HEADERS ============
+        // ================== HEADERS ==================
         return $response->header('X-Trace-Id', $traceId);
     }
 }

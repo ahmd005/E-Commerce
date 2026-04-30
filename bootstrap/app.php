@@ -1,5 +1,9 @@
 <?php
 
+// if (!defined('SIGINT')) define('SIGINT', 2);
+// if (!defined('SIGTERM')) define('SIGTERM', 15);
+// if (!defined('SIGHUP')) define('SIGHUP', 1);
+
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -12,9 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        $middleware->append(\App\Http\Middleware\PerformanceMonitoringMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();
-//
