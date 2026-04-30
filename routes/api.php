@@ -35,7 +35,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanc
 
 Route::get('/products', [ProductController::class, 'index']);
 
-
+Route::post('/test-stock', [InventoryController::class, 'testStock']);
 /*
 |--------------------------------------------------------------------------
 | Protected Routes
@@ -58,8 +58,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders', [OrderController::class, 'index']);
 
     // Inventory test (بدون throttle)
-    Route::post('/test-stock', [InventoryController::class, 'testStock'])
-        ->withoutMiddleware([\Illuminate\Routing\Middleware\ThrottleRequests::class]);
+    // Route::post('/test-stock', [InventoryController::class, 'testStock'])
+    //     ->withoutMiddleware([\Illuminate\Routing\Middleware\ThrottleRequests::class]);
 
     // ========================
     // Benchmark (من الفرع الثاني)
