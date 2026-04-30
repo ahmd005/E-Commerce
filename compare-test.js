@@ -16,9 +16,11 @@ export let options = {
   },
 };
 
-const ports = [8000, 8001, 8002, 8003, 8004, 8005, 8006, 8007, 8008, 8009];
+// قائمة المنافذ التي سنفتحها (يجب تشغيل سيرفر في تيرمنال مستقل لكل بورت)
+const ports = [8000];
 
 export function setup() {
+  // نستخدم البورت الرئيسي 8000 لعملية التجهيز (Setup)
   const setupUrl = 'http://127.0.0.1:8000';
   
   const loginRes = http.post(`${setupUrl}/api/register`, JSON.stringify({
@@ -30,6 +32,7 @@ export function setup() {
 
   const token = loginRes.json().token;
 
+  // إعادة ضبط المخزون ليكون 100 قبل البدء
   http.post(`${setupUrl}/api/benchmark/reset`, JSON.stringify({ product_id: 1 }), {
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
   });
@@ -38,6 +41,7 @@ export function setup() {
 }
 
 export default function (data) {
+  // اختيار بورت عشوائي لكل طلب لمحاكاة التوازي الحقيقي (Parallelism)
   const randomPort = ports[Math.floor(Math.random() * ports.length)];
   const baseUrl = `http://127.0.0.1:${randomPort}`;
 
@@ -81,4 +85,11 @@ export default function (data) {
 
 
 // UPDATE products SET stock = 100 WHERE id = 1;
+
 // php artisan queue:work
+
+//http://127.0.0.1:8000/telescope/views
+
+// http://localhost:8000/api/report/sync-bad-way
+// http://127.0.0.1:8000/api/generate-inventory-report
+// php artisan db:seed --class=OrderSeeder
