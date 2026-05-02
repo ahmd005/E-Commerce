@@ -5,6 +5,8 @@ use App\Http\Controllers\Controller;
 use App\Jobs\QueuedUserExportJob;
 use App\Services\ExportService;
 use Illuminate\Http\Request;
+use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 
 class ActionForAdmin extends Controller
 {
@@ -15,20 +17,32 @@ class ActionForAdmin extends Controller
         $this->exportService = $exportService;
     }
 
-   public function exportSync(Request $request)
+ public function exportSync(Request $request)
 {
     $exportId = uniqid('exp_sync_', true);
     $userId = auth()->id(); 
     
+    
     try {
-        $this->exportService->updateStatus($exportId, 'processing', $userId); 
+        $targetUserIds = \App\Models\User::pluck('id'); 
+        $totalCount = $targetUserIds->count();
+
+        $this->exportService->updateStatus($exportId, 'processing', $userId, null, $totalCount); 
         
-        $path = $this->exportService->handleExport($exportId, $userId);
         
+        foreach ($targetUserIds as $targetId) {
+            $this->exportService->handleSingleUserExport($exportId, $userId, $targetId);
+        }
+        
+        $path = 'exports/export_' . $exportId . '.csv'; 
+        
+        $this->exportService->updateStatus($exportId, 'completed', $userId, $path, $totalCount);
+
         return response()->json([
             'success' => true,
-            'message' => 'تم التصدير بنجاح',
-            'download_url' => url('/storage/' . $path)
+            'message' => 'تم التصدير المتزامن بنجاح',
+            'download_url' => url('/storage/' . $path),
+            'records_processed' => $totalCount
         ]);
     } catch (\Exception $e) {
         $this->exportService->updateStatus($exportId, 'failed', $userId, null, 0, $e->getMessage());

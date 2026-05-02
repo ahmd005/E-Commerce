@@ -12,7 +12,7 @@ class UsersTableSeeder extends Seeder
      */
     public function run(): void
     {
-       $totalRecords = 10000; // إجمالي العدد المطلوب
+       $totalRecords = 1000; // إجمالي العدد المطلوب
     $chunkSize = 1000;    // حجم كل دفعة
 
     for ($i = 0; $i < $totalRecords; $i += $chunkSize) {
