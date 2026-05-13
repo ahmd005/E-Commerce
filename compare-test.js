@@ -1,95 +1,154 @@
-
 import http from 'k6/http';
-import { check, sleep } from 'k6';
+import { check, fail } from 'k6';
+import { Counter } from 'k6/metrics';
 
-const vus_count = parseInt(__ENV.VUS || '20');
-const isControlled = (__ENV.MODE === 'controlled' || __ENV.MODE === 'after');
+const baseHost = __ENV.HOST || 'http://127.0.0.1';
+const ports = (__ENV.PORTS || '8000').split(',').map((value) => value.trim()).filter(Boolean);
+const users = parseInt(__ENV.USERS || '100', 10);
+const mode = (__ENV.MODE || 'safe').toLowerCase();
+const requestedProductId = parseInt(__ENV.PRODUCT_ID || '1', 10);
+const stock = parseInt(__ENV.STOCK || '10', 10);
+const quantity = parseInt(__ENV.QUANTITY || '1', 10);
+const resetEnabled = (__ENV.RESET || 'true').toLowerCase() !== 'false';
+const simulateRace = (__ENV.SIMULATE_RACE || 'true').toLowerCase() !== 'false';
+const delayMs = parseInt(__ENV.DELAY_MS || '50', 10);
 
-export let options = {
+export const options = {
   scenarios: {
-    thread_pool_simulation: {
+    checkout_burst: {
       executor: 'per-vu-iterations',
-      vus: vus_count,
-      iterations: isControlled ? 1 : 1,
-      maxDuration: '1m',
+      vus: users,
+      iterations: 1,
+      maxDuration: '10m',
     },
   },
 };
 
-// قائمة المنافذ التي سنفتحها (يجب تشغيل سيرفر في تيرمنال مستقل لكل بورت)
-const ports = [8000];
+const purchaseSuccess = new Counter('purchase_success');
+const purchaseFail = new Counter('purchase_fail');
+
+// 1. تعديل دالة الطباعة لتقبل قيمة المخزون (Observed Stock)
+function logApiLine(name, res, observedStock = 'N/A', observedBalance = 'N/A') {
+  const durationMs = res && res.timings ? res.timings.duration.toFixed(2) : 'n/a';
+  console.log(
+    `[api] ${name} | Status=${res.status} | Stock_Read=${observedStock} | Balance_Read=${observedBalance} | Duration=${durationMs}ms`
+  );
+}
+
+function pickBaseUrl() {
+  const index = (__VU - 1) % ports.length;
+  return `${baseHost}:${ports[index]}`;
+}
+
+function primaryBaseUrl() {
+  return `${baseHost}:${ports[0]}`;
+}
 
 export function setup() {
-  // نستخدم البورت الرئيسي 8000 لعملية التجهيز (Setup)
-  const setupUrl = 'http://127.0.0.1:8000';
-  
-  const loginRes = http.post(`${setupUrl}/api/register`, JSON.stringify({
-    name: "Performance Tester",
-    email: `test-${Date.now()}@test.com`,
-    password: "Password123!",
-    password_confirmation: "Password123!"
-  }), { headers: { 'Content-Type': 'application/json' } });
+  let productId = requestedProductId;
+  const setupBaseUrl = primaryBaseUrl();
 
-  const token = loginRes.json().token;
+  if (resetEnabled) {
+    const resetRes = http.post(
+      `${setupBaseUrl}/api/benchmark/bootstrap-stock`,
+      JSON.stringify({
+        product_id: productId,
+        stock,
+        name: `Stress Product ${productId}`,
+        price: 100,
+        description: 'Benchmark product for concurrency testing',
+      }),
+      { headers: { 'Content-Type': 'application/json' } }
+    );
 
-  // إعادة ضبط المخزون ليكون 100 قبل البدء
-  http.post(`${setupUrl}/api/benchmark/reset`, JSON.stringify({ product_id: 1 }), {
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-  });
+    logApiLine('bootstrap-stock', resetRes);
 
-  return { token };
+    if (!check(resetRes, { 'bootstrap stock returns success': (r) => r.status === 200 })) {
+      fail(`Stock bootstrap failed`);
+    }
+
+    const bootstrappedProductId = resetRes.json('product_id');
+    if (bootstrappedProductId) {
+      productId = Number(bootstrappedProductId);
+    }
+  }
+
+  return { productId, stock, quantity, mode, users };
 }
 
 export default function (data) {
-  // اختيار بورت عشوائي لكل طلب لمحاكاة التوازي الحقيقي (Parallelism)
-  const randomPort = ports[Math.floor(Math.random() * ports.length)];
-  const baseUrl = `http://127.0.0.1:${randomPort}`;
-
-  const headers = {
-    'Authorization': `Bearer ${data.token}`,
-    'Content-Type': 'application/json'
+  const endpoint = data.mode === 'unsafe' ? '/api/checkout/unsafe' : '/api/checkout';
+  const baseUrl = pickBaseUrl();
+  const payload = {
+    items: [
+      {
+        product_id: data.productId,
+        quantity: data.quantity,
+      },
+    ],
+    simulate_race: simulateRace,
+    delay_ms: delayMs,
   };
 
-  const mode = isControlled ? 'after' : 'before';
-  
   const res = http.post(
-    `${baseUrl}/api/benchmark/checkout/${mode}`, 
-    JSON.stringify({ product_id: 1 }), 
-    { headers }
+    `${baseUrl}${endpoint}`,
+    JSON.stringify(payload),
+    { headers: { 'Content-Type': 'application/json' } }
   );
 
-  let body;
-  try { body = res.json(); } catch (e) { body = {}; }
-  
-  const stockAfter = (body.stock_after !== undefined) ? body.stock_after : 'N/A';
-
-  if (isControlled) {
-    check(res, {
-      'Controlled: Stock Safe': (r) => stockAfter >= 0,
-    });
-  } else {
-    check(res, {
-      'Uncontrolled: Request Processed': (r) => r.status === 200,
-    });
+  // 2. استخراج قيمة المخزون من استجابة الـ API
+  let observedStock = 'unknown';
+  let observedBalance = 'unknown';
+  try {
+    const responseBody = res.json();
+    observedStock = responseBody.observed_stock !== undefined ? responseBody.observed_stock : 'N/A';
+    observedBalance = responseBody.observed_balance !== undefined ? responseBody.observed_balance : 'N/A';
+  } catch (error) {
+    observedStock = 'parse_error';
+    observedBalance = 'parse_error';
   }
 
-  console.log(
-    `[VU-${__VU} | Port-${randomPort}] ` +
-    `MODE: ${mode.toUpperCase()} | ` +
-    `Stock: ${stockAfter} | ` +
-    `Status: ${body.status}`
-  );
+  const port = baseUrl.split(':').pop();
+  // 3. تمرير القيمة المستخرجة لدالة الطباعة
+  logApiLine(`checkout mode=${data.mode} vu=${__VU} port=${port}`, res, observedStock, observedBalance);
 
-  sleep(isControlled ? 0.1 : 0.01);            
+  check(res, {
+    'checkout request finished': (r) => r.status === 200 || r.status === 500 || r.status === 422 || r.status === 409,
+  });
+
+  if (res.status === 200) {
+    purchaseSuccess.add(1);
+  } else {
+    purchaseFail.add(1);
+  }
 }
 
+export function teardown(data) {
+  const productsRes = http.get(`${primaryBaseUrl()}/api/products`);
+  
+  let finalStock = 'unknown';
+  try {
+    const products = productsRes.json();
+    const productsArray = Array.isArray(products) ? products : Object.values(products);
+    const product = productsArray.find((item) => Number(item.id) === data.productId);
+    finalStock = product ? product.stock : 'missing';
+  } catch (error) {
+    finalStock = 'unreadable';
+  }
 
-// UPDATE products SET stock = 100 WHERE id = 1;
+  logApiLine('products-final', productsRes, finalStock, 'N/A');
+  console.log(`summary mode=${data.mode} users=${data.users} final_stock=${finalStock}`);
+}
 
-// php artisan queue:work
+export function handleSummary(data) {
+  const successCount = data.metrics.purchase_success
+    ? data.metrics.purchase_success.values.count
+    : 0;
+  const failCount = data.metrics.purchase_fail
+    ? data.metrics.purchase_fail.values.count
+    : 0;
 
-//http://127.0.0.1:8000/telescope/views
-
-// http://localhost:8000/api/report/sync-bad-way
-// http://127.0.0.1:8000/api/generate-inventory-report
-// php artisan db:seed --class=OrderSeeder
+  return {
+    stdout: `\nsummary purchases_success=${successCount} purchases_failed=${failCount}\n`,
+  };
+}

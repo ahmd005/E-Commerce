@@ -11,6 +11,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ConcurrencyCheckoutController;
 use App\Http\Controllers\Admin\ActionForAdmin;
+use App\Http\Controllers\Api\CheckoutController;
 
 /*
 |--------------------------------------------------------------------------
@@ -40,6 +41,8 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanc
 
 Route::get('/products', [ProductController::class, 'index']);
 Route::post('/test-stock', [InventoryController::class, 'testStock']);
+Route::post('/benchmark/reset-stock', [OrderController::class, 'resetStock']);
+Route::post('/benchmark/bootstrap-stock', [OrderController::class, 'bootstrapStock']);
 
 /*
 |--------------------------------------------------------------------------
@@ -70,7 +73,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/cart/remove', [CartController::class, 'remove']);
 
     // Orders
-    Route::post('/checkout', [OrderController::class, 'checkout']);
+    Route::post('/checkout/legacy', [OrderController::class, 'checkout']);
     Route::get('/orders', [OrderController::class, 'index']);
 
     // Benchmark
@@ -91,3 +94,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::get('/generate-inventory-report', [OrderController::class, 'generateDailyReport']);
 Route::get('/report/sync-bad-way', [OrderController::class, 'generateReportSync']);
+
+Route::post('/checkout', [CheckoutController::class, 'store']);
+Route::post('/checkout/unsafe', [CheckoutController::class, 'storeUnsafe']);
