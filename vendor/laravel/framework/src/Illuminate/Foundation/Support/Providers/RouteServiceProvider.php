@@ -7,6 +7,9 @@ use Illuminate\Contracts\Routing\UrlGenerator;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Traits\ForwardsCalls;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter; // هذا هو السطر الذي ينقصك
 
 /**
  * @mixin \Illuminate\Routing\Router
@@ -71,10 +74,25 @@ class RouteServiceProvider extends ServiceProvider
      *
      * @return void
      */
-    public function boot()
+    // public function boot()
+    // {
+    //     //
+    // }
+
+
+     public function boot()
     {
-        //
-    }
+    RateLimiter::for('benchmark_limit', function (Request $request) {
+        // نحدد هنا 1000 طلب لكل دقيقة (أو أي مدة تختارها)
+        return Limit::perMinute(1000)->response(function () {
+            // هذا الجزء هو السر: رد فوري برمز 429 أو 503
+            // يخبر السيرفر "أنا ممتلئ حالياً، لا تنتظر"
+            return response('Server Busy - Benchmark Limit Reached', 429);
+        });
+    });
+
+    // لا تحذف نداء الـ parent إذا كان موجوداً في نسختك
+    }    
 
     /**
      * Register the callback that will be used to load the application's routes.

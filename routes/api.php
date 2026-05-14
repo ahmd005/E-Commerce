@@ -79,8 +79,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Benchmark
     Route::post('/benchmark/checkout/before', [OrderController::class, 'before']);
     Route::post('/benchmark/checkout/compare', [OrderController::class, 'compare']);
-    Route::post('/benchmark/checkout/after', [OrderController::class, 'after'])
-        ->middleware('throttle:2000,10');
+    // Route::post('/benchmark/checkout/after', [OrderController::class, 'after'])
+    //     ->middleware('throttle:2000,10');
+
+     Route::post('/benchmark/checkout/after', [OrderController::class, 'after'])
+    ->middleware('throttle:benchmark_limit');
+
 
     // Optional concurrency
     // Route::post('/checkout/concurrency', [ConcurrencyCheckoutController::class, 'checkout']);
