@@ -12,8 +12,8 @@ class UsersTableSeeder extends Seeder
      */
     public function run(): void
     {
-       $totalRecords = 1000; // إجمالي العدد المطلوب
-    $chunkSize = 1000;    // حجم كل دفعة
+       $totalRecords = 10000; 
+    $chunkSize = 1000;    
 
     for ($i = 0; $i < $totalRecords; $i += $chunkSize) {
         \App\Models\User::factory()->count($chunkSize)->create();

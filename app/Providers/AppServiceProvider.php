@@ -21,6 +21,9 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobFailed;
+use Laravel\Sanctum\Sanctum;
+use Laravel\Sanctum\PersonalAccessToken;
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -38,7 +41,8 @@ class AppServiceProvider extends ServiceProvider
     public static $jobStartTime;
     public function boot(): void
     {
-        
+            Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
+
         Queue::before(function (JobProcessing $event) {
 
         self::$jobStartTime = microtime(true);

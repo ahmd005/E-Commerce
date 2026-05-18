@@ -8,7 +8,6 @@ use App\Http\Requests\AuthValidation\RegisterValidation;
 use App\Http\Requests\AuthValidation\LoginValidation;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use Illuminate\Support\Facades\Hash;
-
 class AuthController extends Controller
 {
     public function __construct(private UserRepositoryInterface $users)

@@ -105,7 +105,6 @@ class QueueRequestTrackingMiddleware
     {
         $info = [];
         
-        // معلومات Job من الـ Header
         if ($request->hasHeader('X-Job-Id')) {
             $info['job_id'] = $request->header('X-Job-Id');
         }
@@ -114,7 +113,6 @@ class QueueRequestTrackingMiddleware
             $info['queue_name'] = $request->header('X-Queue-Name');
         }
         
-        // معلومات من الـ Session
         if ($request->session()->has('last_export_id')) {
             $info['last_export_id'] = $request->session()->get('last_export_id');
         }
@@ -122,9 +120,7 @@ class QueueRequestTrackingMiddleware
         return $info;
     }
     
-    /**
-     * تسجيل بداية طلب الـ Queue
-     */
+    
     private function logQueueRequestStart(Request $request, string $requestId): void
     {
         Log::channel('queue_jobs')->info('📥 بدء طلب', [

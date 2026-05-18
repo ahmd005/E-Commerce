@@ -50,22 +50,7 @@ class ActionForAdmin extends Controller
     }
 }
 
-//  public function exportWithQueue(Request $request)
-// {
-//     if (!auth()->check()) {
-//         return response()->json(['error' => 'Unauthenticated'], 401);
-//     }
-//     $exportId = uniqid('exp_queue_', true);
-//     $userId = auth()->id(); 
 
-//     $this->exportService->updateStatus($exportId, 'pending', $userId); 
-
-//     QueuedUserExportJob::dispatch($exportId, $userId)
-//         ->onQueue('exports');
-
-//     return response()->json(['success' => true, 'export_id' => $exportId]);
-// }
-// App\Http\Controllers\Admin\ActionForAdmin.php
 
 public function exportWithQueue(Request $request)
 {
@@ -76,12 +61,10 @@ public function exportWithQueue(Request $request)
     $exportId = uniqid('batch_', true);
     $userId = auth()->id(); 
 
-    // جلب كل المعرفات التي نريد تصديرها
     $targetUserIds = \App\Models\User::pluck('id'); 
 
     $this->exportService->updateStatus($exportId, 'pending', $userId, null, $targetUserIds->count()); 
 
-    // إرسال جوب منفصل لكل مستخدم
     foreach ($targetUserIds as $targetId) {
         \App\Jobs\QueuedUserExportJob::dispatch($exportId, $userId, $targetId)
             ->onQueue('exports');
