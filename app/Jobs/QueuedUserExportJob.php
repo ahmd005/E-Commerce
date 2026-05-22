@@ -12,29 +12,17 @@ use Illuminate\Support\Facades\Log;
 class QueuedUserExportJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-    /**
-     * عدد مرات إعادة المحاولة عند حدوث فشل.
-     */
+    
     public $tries = 3;
 
-    /**
-     * عدد الثواني التي يجب انتظرها قبل إعادة المحاولة.
-     * يمنح السيرفر وقتاً للتعافي من ضغط الذاكرة أو قاعدة البيانات.
-     */
     public $backoff = 60;
 
-    /**
-     * تحديد وقت انتهاء المهمة بالكامل (Timeout) 
-     * ضروري جداً عند التعامل مع 10,000 مستخدم في مهمة واحدة.
-     */
-    public $timeout = 600; // 10 دقائق
+    public $timeout = 600; 
 
-    // App\Jobs\QueuedUserExportJob.php
 
 protected $exportId;
-protected $userId; // الآدمين الذي طلب التصدير
-protected $targetUserId; // المستخدم المراد تصديره الآن
-
+protected $userId; 
+protected $targetUserId; 
 public function __construct($exportId, $userId, $targetUserId)
 {
     $this->exportId = $exportId;
@@ -45,7 +33,6 @@ public function __construct($exportId, $userId, $targetUserId)
 public function handle(ExportService $service)
 {
     try {
-        // معالجة مستخدم واحد فقط في هذا الجوب
         $service->handleSingleUserExport($this->exportId, $this->userId, $this->targetUserId);
     } catch (\Exception $e) {
         Log::error("فشل تصدير المستخدم {$this->targetUserId}: " . $e->getMessage());

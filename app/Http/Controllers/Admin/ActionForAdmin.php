@@ -50,23 +50,32 @@ class ActionForAdmin extends Controller
     }
 }
 
-//  public function exportWithQueue(Request $request)
+
+
+// public function exportWithQueue(Request $request)
 // {
 //     if (!auth()->check()) {
 //         return response()->json(['error' => 'Unauthenticated'], 401);
 //     }
-//     $exportId = uniqid('exp_queue_', true);
+
+//     $exportId = uniqid('batch_', true);
 //     $userId = auth()->id(); 
 
-//     $this->exportService->updateStatus($exportId, 'pending', $userId); 
+//     $targetUserIds = \App\Models\User::pluck('id'); 
 
-//     QueuedUserExportJob::dispatch($exportId, $userId)
-//         ->onQueue('exports');
+//     $this->exportService->updateStatus($exportId, 'pending', $userId, null, $targetUserIds->count()); 
 
-//     return response()->json(['success' => true, 'export_id' => $exportId]);
+//     foreach ($targetUserIds as $targetId) {
+//         \App\Jobs\QueuedUserExportJob::dispatch($exportId, $userId, $targetId)
+//             ->onQueue('exports');
+//     }
+
+//     return response()->json([
+//         'success' => true, 
+//         'export_id' => $exportId, 
+//         'jobs_count' => $targetUserIds->count()
+//     ]);
 // }
-// App\Http\Controllers\Admin\ActionForAdmin.php
-
 public function exportWithQueue(Request $request)
 {
     if (!auth()->check()) {
@@ -76,21 +85,22 @@ public function exportWithQueue(Request $request)
     $exportId = uniqid('batch_', true);
     $userId = auth()->id(); 
 
-    // جلب كل المعرفات التي نريد تصديرها
-    $targetUserIds = \App\Models\User::pluck('id'); 
+    // استخدام الـ Repository لجلب العدد الإجمالي فقط (استعلام سريع جداً وخفيف)
+    // نستخدم الـ Builder المتاح في UserRepository الذي قمت بإنشائه
+    $userRepository = app(\App\Repositories\Contracts\UserRepositoryInterface::class);
+    $totalCount = $userRepository->getExportQuery()->count();
 
-    $this->exportService->updateStatus($exportId, 'pending', $userId, null, $targetUserIds->count()); 
+    // تحديث حالة التصدير إلى معلق
+    $this->exportService->updateStatus($exportId, 'pending', $userId, null, $totalCount); 
 
-    // إرسال جوب منفصل لكل مستخدم
-    foreach ($targetUserIds as $targetId) {
-        \App\Jobs\QueuedUserExportJob::dispatch($exportId, $userId, $targetId)
-            ->onQueue('exports');
-    }
+    // 🔥 الحل السحري: إرسال وظيفة واحدة رئيسية فقط للطابور وينتهي دور الـ Controller فوراً!
+    \App\Jobs\InitiateUserExportJob::dispatch($exportId, $userId)->onQueue('exports');
 
     return response()->json([
         'success' => true, 
         'export_id' => $exportId, 
-        'jobs_count' => $targetUserIds->count()
+        'message' => 'تم بدء عملية التصدير في الخلفية بنجاح.',
+        'total_records' => $totalCount
     ]);
 }
 }

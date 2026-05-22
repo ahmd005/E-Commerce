@@ -12,7 +12,7 @@ class QueueRequestTrackingMiddleware
      * الأنماط التي نريد تتبعها (تطبيقات الـ Queue فعلياً)
      */
     protected $trackedPaths = [
-        'api/export*',      // تصدير المستخدمين
+        'api/admin/export*',      // تصدير المستخدمين
         'api/queue/*',      // endpoints المخصصة للـ Queue
         'api/jobs/*',       // مراقبة الـ Jobs
     ];
@@ -105,6 +105,7 @@ class QueueRequestTrackingMiddleware
     {
         $info = [];
         
+        // معلومات Job من الـ Header
         if ($request->hasHeader('X-Job-Id')) {
             $info['job_id'] = $request->header('X-Job-Id');
         }
@@ -113,14 +114,17 @@ class QueueRequestTrackingMiddleware
             $info['queue_name'] = $request->header('X-Queue-Name');
         }
         
-        if ($request->session()->has('last_export_id')) {
-            $info['last_export_id'] = $request->session()->get('last_export_id');
-        }
+        // // معلومات من الـ Session
+        // if ($request->session()->has('last_export_id')) {
+        //     $info['last_export_id'] = $request->session()->get('last_export_id');
+        // }
         
         return $info;
     }
     
-    
+    /**
+     * تسجيل بداية طلب الـ Queue
+     */
     private function logQueueRequestStart(Request $request, string $requestId): void
     {
         Log::channel('queue_jobs')->info('📥 بدء طلب', [

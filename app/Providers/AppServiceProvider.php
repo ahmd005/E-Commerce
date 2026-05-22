@@ -15,12 +15,17 @@ use App\Repositories\PermissionRepository;
 use App\Repositories\RoleRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\CartRepository;
+use App\Repositories\Contracts\CartDbRepositoryInterface;
+use App\Repositories\EloquentCartRepository;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobFailed;
+use Laravel\Sanctum\Sanctum;
+use Laravel\Sanctum\PersonalAccessToken;
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -30,6 +35,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
         $this->app->bind(CartRepositoryInterface::class, CartRepository::class);
+        $this->app->bind(CartDbRepositoryInterface::class, EloquentCartRepository::class);
     }
 
     /**
@@ -38,7 +44,8 @@ class AppServiceProvider extends ServiceProvider
     public static $jobStartTime;
     public function boot(): void
     {
-        
+            Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
+
         Queue::before(function (JobProcessing $event) {
 
         self::$jobStartTime = microtime(true);

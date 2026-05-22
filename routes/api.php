@@ -12,7 +12,9 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ConcurrencyCheckoutController;
 use App\Http\Controllers\Admin\ActionForAdmin;
 use App\Http\Controllers\Api\CheckoutController;
-
+use App\Http\Middleware\TrackCartRequests;
+use App\Http\Controllers\CartDBController;
+use App\Http\Middleware\QueueRequestTrackingMiddleware;
 /*
 |--------------------------------------------------------------------------
 | User Auth Route
@@ -50,7 +52,7 @@ Route::post('/benchmark/bootstrap-stock', [OrderController::class, 'bootstrapSto
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(QueueRequestTrackingMiddleware::class,'auth:sanctum')->group(function () {
     Route::post('/admin/export/queue', [ActionForAdmin::class, 'exportWithQueue']);
     Route::post('/admin/export/sync', [ActionForAdmin::class, 'exportSync']);
 });
@@ -66,11 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Products
     Route::post('/products', [ProductController::class, 'store']);
 
-    // Cart
-    Route::get('/cart', [CartController::class, 'getCart']);
-    Route::post('/cart/add', [CartController::class, 'add']);
-    Route::post('/cart/update', [CartController::class, 'update']);
-    Route::post('/cart/remove', [CartController::class, 'remove']);
+    
 
     // Orders
     Route::post('/checkout/legacy', [OrderController::class, 'checkout']);
@@ -95,7 +93,25 @@ Route::middleware('auth:sanctum')->group(function () {
 | Reports
 |--------------------------------------------------------------------------
 */
-
+Route::prefix('v1/cart/redis')
+    ->middleware([TrackCartRequests::class, 'auth:sanctum'])
+    ->group(function () {
+        
+        Route::get('/index', [CartController::class, 'index'])->name('api.cart.index');
+        
+        Route::post('/items', [CartController::class, 'store'])->name('api.cart.store');
+        
+        Route::delete('/items/{productId}', [CartController::class, 'destroy'])->name('api.cart.destroy');
+        Route::delete('/clear', [CartController::class, 'clear'])->name('api.cart.clear');
+        
+    });
+Route::prefix('v1/cart/db')
+    ->middleware([TrackCartRequests::class, 'auth:sanctum'])->group(function () {
+    Route::get('/index', [CartDBController::class, 'index']);         
+    Route::post('/add', [CartDBController::class, 'store']);       
+    Route::delete('/remove/{productId}', [CartDBController::class, 'destroy']); 
+    Route::delete('/clear', [CartDBController::class, 'clear']);
+});
 Route::get('/generate-inventory-report', [OrderController::class, 'generateDailyReport']);
 Route::get('/report/sync-bad-way', [OrderController::class, 'generateReportSync']);
 

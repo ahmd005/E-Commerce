@@ -29,24 +29,12 @@ public function handleSingleUserExport($exportId, $adminId, $targetUserId)
     ]);
     fclose($file);
 
-    \DB::table('exports')
+    DB::table('exports')
         ->where('export_id', $exportId)
         ->increment('records_count');
 }
 
-// public function handleExport($exportId, $userId)
-// {
-//     $fileName = 'users_export_' . $exportId . '_' . now()->format('Y-m-d_H-i-s') . '.xlsx';
-//     $filePath = 'exports/' . $fileName;
 
-//     Excel::store(app(UsersExport::class, ['exportId' => $exportId, 'userId' => $userId]), $filePath, 'public');
-
-//     $userCount = User::count(); 
-    
-//     $this->updateStatus($exportId, 'completed', $userId, $filePath, $userCount);
-
-//     return $filePath;
-// }
 
 
 
@@ -87,7 +75,7 @@ public function handleExport($exportId, $userId)
 
 public function updateStatus($exportId, $status, $userId, $filePath = null, $count = 0, $error = null)
 {
-    \DB::table('exports')->updateOrInsert(
+    DB::table('exports')->updateOrInsert(
         ['export_id' => $exportId],
         [
             'user_id'       => $userId,       
