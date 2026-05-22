@@ -1,51 +1,43 @@
 <?php
-
 namespace App\Repositories;
 
-use App\Models\Cart;
-use App\Models\CartItem;
+use App\Repositories\Contracts\CartRepositoryInterface;
+use Illuminate\Support\Facades\Redis;
 
-class CartRepository implements Contracts\CartRepositoryInterface
+class CartRepository implements CartRepositoryInterface
 {
-    
-   public function getUserCart(int $userId)
-   {    
-       $cart = Cart::where('user_id', $userId)->first();
-       return $cart;
-   }
+    public function getItems(string $key): array
+    {
+        // جلب جميع العناصر المخزنة في الـ Hash
+        $items = Redis::hgetall($key);
 
-   public function addToCart(int $userId, int $productId, int $quantity)
-   {        
-       $cart = $this->getUserCart($userId); 
-       
-       if (!$cart) {
-           $cart = Cart::create(['user_id' => $userId]);
-       }
-       
-       $item = CartItem::where('cart_id', $cart->id)
-               ->where('product_id', $productId)
-               ->first();
-       
-       if ($item) {
-           $item->quantity += $quantity;
-           $item->save();
-       } else {
-           CartItem::create([
-               'cart_id' => $cart->id,
-               'product_id' => $productId,
-               'quantity' => $quantity
-           ]);
-       }
-   }
+        return array_map(function ($item) {
+            return json_decode($item, true);
+        }, $items);
+    }
 
-   public function removeFromCart(int $itemId)
-   {
-      $item = CartItem::find($itemId);
-      if ($item) {
-          $item->delete();
-      } else {
-          throw new \Exception('Item not found in cart');
-      }   
-   }
+    public function updateItem(string $key, int $productId, int $quantity): void
+    {
+        // تخزين تفاصيل المنتج كـ JSON داخل حقل الـ Product ID
+        Redis::hset($key, $productId, json_encode([
+            'product_id' => $productId,
+            'quantity'   => $quantity,
+            'updated_at' => now()->toDateTimeString()
+        ]));
+    }
 
+    public function removeItem(string $key, int $productId): void
+    {
+        Redis::hdel($key, $productId);
+    }
+
+    public function clear(string $key): void
+    {
+        Redis::del($key);
+    }
+
+    public function setExpiry(string $key, int $ttlInSeconds): void
+    {
+        Redis::expire($key, $ttlInSeconds);
+    }
 }

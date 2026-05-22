@@ -29,7 +29,7 @@ public function handleSingleUserExport($exportId, $adminId, $targetUserId)
     ]);
     fclose($file);
 
-    \DB::table('exports')
+    DB::table('exports')
         ->where('export_id', $exportId)
         ->increment('records_count');
 }
@@ -38,7 +38,7 @@ public function handleSingleUserExport($exportId, $adminId, $targetUserId)
 
 public function updateStatus($exportId, $status, $userId, $filePath = null, $count = 0, $error = null)
 {
-    \DB::table('exports')->updateOrInsert(
+    DB::table('exports')->updateOrInsert(
         ['export_id' => $exportId],
         [
             'user_id'       => $userId,       

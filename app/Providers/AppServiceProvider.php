@@ -15,6 +15,8 @@ use App\Repositories\PermissionRepository;
 use App\Repositories\RoleRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\CartRepository;
+use App\Repositories\Contracts\CartDbRepositoryInterface;
+use App\Repositories\EloquentCartRepository;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Log;
@@ -33,6 +35,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
         $this->app->bind(CartRepositoryInterface::class, CartRepository::class);
+        $this->app->bind(CartDbRepositoryInterface::class, EloquentCartRepository::class);
     }
 
     /**

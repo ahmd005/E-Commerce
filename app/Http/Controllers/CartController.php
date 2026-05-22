@@ -1,46 +1,58 @@
 <?php
-
 namespace App\Http\Controllers;
 
-use App\Models\Cart;
-use App\Models\CartItem;
-use Illuminate\Http\Request;
-use App\Repositories\Contracts\CartRepositoryInterface;
-use App\Repositories\CartRepository;
+use App\Http\Requests\AddToCartRequest;
+use App\Services\CartService;
+use Illuminate\Http\JsonResponse;
+
 class CartController extends Controller
 {
+    protected $cartService;
 
-
-    public function __construct(private CartRepositoryInterface $cartRepository)
+    // حقن الخدمة داخل الكنترولر تلقائياً
+    public function __construct(CartService $cartService)
     {
-        
-    }
-    public function getCart() {
-        $userId = auth()->id();
-        $cart = $this->cartRepository->getUserCart($userId); 
-        return response()->json($cart,200);
-
+        $this->cartService = $cartService;
     }
 
-    public function add(Request $request) {
-        $userId = auth()->id();
-        $this->cartRepository->addToCart($userId, $request->product_id, $request->quantity);
-
-        return response()->json(['message' => 'Added'],200);
-    }
-    public function update(Request $request) {
-        $userId = auth()->id();
-        $this->cartRepository->addToCart($userId, $request->product_id, $request->quantity);
-        return response()->json(['message' => 'Updated'],200);
+    public function index(): JsonResponse
+    {
+        return response()->json([
+            'status' => 'success',
+            'data'   => $this->cartService->getCart()
+        ],200);
     }
 
-    public function remove(Request $request) {
-        try{
-            $this->cartRepository->removeFromCart($request->item_id);
-            return response()->json(['message' => 'Removed'],200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 404);
-        }
-        
+    public function store(AddToCartRequest $request): JsonResponse
+    {
+        $this->cartService->addItem(
+            $request->validated('product_id'),
+            $request->validated('quantity')
+        );
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Product added to cart successfully.'
+        ]);
+    }
+
+    public function destroy(int $productId): JsonResponse
+    {
+        $this->cartService->removeItem($productId);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Product removed from cart.'
+        ]);
+    }
+
+    public function clear(): JsonResponse
+    {
+        $this->cartService->emptyCart();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Cart cleared successfully.'
+        ]);
     }
 }
