@@ -66,4 +66,11 @@ class Benchmark
 
         dd($result);
     }
+
+
+    // داخل الأمر الذي تنشئه
+public function handle() {
+    \Illuminate\Support\Facades\Redis::del('laravel_database_global_benchmark');
+    $this->info('Benchmark limit reset!');
+}
 }

@@ -14,7 +14,6 @@ use App\Models\OrderItem;
 use Illuminate\Support\Facades\Log;
 
 
-
 // تأكد من استدعاء الـ Job الخاص بالتقارير إذا كنت تستخدمه
 // use App\Jobs\UpdateInventoryReport;
 

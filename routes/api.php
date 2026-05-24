@@ -15,6 +15,10 @@ use App\Http\Controllers\Api\CheckoutController;
 use App\Http\Middleware\TrackCartRequests;
 use App\Http\Controllers\CartDBController;
 use App\Http\Middleware\QueueRequestTrackingMiddleware;
+use App\Http\Middleware\PerformanceMonitoringMiddleware;
+use App\Http\Middleware\HighPerformanceTransactionAspect;
+use App\Http\Middleware\PerformanceMonitor;
+use Illuminate\Support\Facades\RateLimiter;
 /*
 |--------------------------------------------------------------------------
 | User Auth Route
@@ -74,16 +78,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/checkout/legacy', [OrderController::class, 'checkout']);
     Route::get('/orders', [OrderController::class, 'index']);
 
-    // Benchmark
-    Route::post('/benchmark/checkout/before', [OrderController::class, 'before']);
-    Route::post('/benchmark/checkout/compare', [OrderController::class, 'compare']);
+     Route::post('/benchmark/checkout/compare', [OrderController::class, 'compare']);
     // Route::post('/benchmark/checkout/after', [OrderController::class, 'after'])
     //     ->middleware('throttle:2000,10');
-
-     Route::post('/benchmark/checkout/after', [OrderController::class, 'after'])
-    ->middleware('throttle:benchmark_limit');
-
-
+   
     // Optional concurrency
     // Route::post('/checkout/concurrency', [ConcurrencyCheckoutController::class, 'checkout']);
 });
@@ -114,6 +112,21 @@ Route::prefix('v1/cart/db')
 });
 Route::get('/generate-inventory-report', [OrderController::class, 'generateDailyReport']);
 Route::get('/report/sync-bad-way', [OrderController::class, 'generateReportSync']);
+Route::post('/checkout', [CheckoutController::class, 'store'])->middleware(HighPerformanceTransactionAspect::class);
+Route::post('/checkout/unsafe', [CheckoutController::class, 'storeUnsafe'])->middleware(HighPerformanceTransactionAspect::class);
 
-Route::post('/checkout', [CheckoutController::class, 'store']);
-Route::post('/checkout/unsafe', [CheckoutController::class, 'storeUnsafe']);
+
+
+
+ // Benchmark
+    Route::post('/benchmark/checkout/before', [OrderController::class, 'before'])->middleware(PerformanceMonitoringMiddleware::class);
+   
+
+     Route::post('/benchmark/checkout/after', [OrderController::class, 'after'])
+    ->middleware('throttle:benchmark_limit',PerformanceMonitoringMiddleware::class);
+
+Route::post('/benchmark/reset-limit', function () {
+    RateLimiter::clear('benchmark_limit');
+    return response()->json(['message' => 'Rate limit reset successfully']);
+});
+

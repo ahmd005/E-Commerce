@@ -80,19 +80,34 @@ class RouteServiceProvider extends ServiceProvider
     // }
 
 
-     public function boot()
-    {
-    RateLimiter::for('benchmark_limit', function (Request $request) {
-        // نحدد هنا 1000 طلب لكل دقيقة (أو أي مدة تختارها)
-        return Limit::perMinute(1000)->response(function () {
-            // هذا الجزء هو السر: رد فوري برمز 429 أو 503
-            // يخبر السيرفر "أنا ممتلئ حالياً، لا تنتظر"
-            return response('Server Busy - Benchmark Limit Reached', 429);
-        });
-    });
+    //     public function boot()
+    // {
+    //     RateLimiter::for('benchmark_limit', function (Request $request) {
+    //         // نستخدم 'key' موحد لكل البورتات
+    //         //return Limit::perMinute(200)
+    //         // يسمح بـ 200 طلب لكل دقيقتين
+    //             return Limit::perMinutes(2, 200)
+    //             ->response(function () {
+    //                 return response('Server Busy - Global Limit Reached', 429);
+    //             });
+    //     });
+    // }
 
-    // لا تحذف نداء الـ parent إذا كان موجوداً في نسختك
-    }    
+
+   public function boot()
+{
+
+    RateLimiter::for('benchmark_limit', function (Request $request) {
+        // نستخدم مفتاح ثابت 'global_benchmark' لتوحيد العد عبر جميع البورتات
+        return Limit::perMinutes(1, 200)
+                ->by('global_benchmark') 
+                ->response(function () {
+                    return response('Server Busy - Global Limit Reached', 429);
+                });
+    });
+}
+    // // لا تحذف نداء الـ parent إذا كان موجوداً في نسختك
+    // }    
 
     /**
      * Register the callback that will be used to load the application's routes.
